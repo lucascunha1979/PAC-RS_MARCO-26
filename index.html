@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Novo PAC (2023–2030) – Rio Grande do Sul</title>
+  <meta name="description" content="Painel interativo do Novo PAC (2023–2030) para o Rio Grande do Sul." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css" />
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+  <div class="site-shell">
+    <header class="hero">
+      <div class="hero-media">
+        <img src="assets/banner_pac.jpeg" alt="Banner institucional do Novo PAC" onerror="this.parentElement.style.display='none'" />
+      </div>
+      <div class="hero-body">
+        <div class="hero-copy">
+          <div class="eyebrow">Novo PAC (2023–2030)</div>
+          <h1>Rio Grande do Sul</h1>
+          <p>
+            Casa Civil – Governo Federal – Brasil<br>
+            Atualização da base: <span id="heroAtualizacao">março de 2026</span>
+          </p>
+        </div>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="https://www.gov.br/casacivil/pt-br/novopac/transparencia" target="_blank" rel="noopener noreferrer">Fonte oficial</a>
+          <button id="btnPdf" class="btn btn-secondary">Baixar relatório em PDF</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="page-grid">
+      <aside class="sidebar">
+        <section class="panel sticky-panel">
+          <div class="panel-head">
+            <h2>Filtros</h2>
+            <button id="btnReset" class="btn btn-muted">Limpar filtros</button>
+          </div>
+
+          <div class="field-block">
+            <label class="field-label" for="municipioSearch">Município</label>
+            <input id="municipioSearch" class="field-input" type="text" placeholder="Digite para localizar um município" autocomplete="off" />
+            <select id="municipioSelect" class="field-select" size="12" aria-label="Selecionar município"></select>
+            <div class="field-help">Filtro principal do painel.</div>
+          </div>
+
+          <div class="field-block">
+            <div class="field-label">Filtros ativos</div>
+            <div id="activeFilters" class="chip-wrap empty-state small-empty">Nenhum filtro ativo além do recorte geral.</div>
+          </div>
+
+          <div class="field-block info-box">
+            <div class="info-title">Como navegar</div>
+            <ul>
+              <li>Selecione um município no filtro principal.</li>
+              <li>Clique nos gráficos para aplicar filtros cruzados.</li>
+              <li>A hierarquia central segue: <b>Eixo → Subeixo → Modalidade → Empreendimento</b>.</li>
+              <li>Ao selecionar um empreendimento com link, o botão <b>Ver detalhes ↗</b> aparece no breadcrumb.</li>
+              <li>Todos os valores monetários são exibidos em reais.</li>
+              <li>O PDF exporta tabelas-resumo do recorte ativo.</li>
+            </ul>
+          </div>
+        </section>
+      </aside>
+
+      <section class="content">
+        <!-- KPIs -->
+        <section class="panel kpi-panel">
+          <div class="panel-head">
+            <h2>Visão geral do recorte</h2>
+            <div class="status-inline" id="statusLine">Carregando dados…</div>
+          </div>
+          <div class="kpi-grid">
+            <article class="kpi-card highlight">
+              <div class="kpi-label">Valor total</div>
+              <div id="kpiValor" class="kpi-value">R$ 0,00</div>
+              <div class="kpi-note">Soma da estimativa de valor dos empreendimentos.</div>
+            </article>
+            <article class="kpi-card">
+              <div class="kpi-label">Execução física média</div>
+              <div id="kpiExec" class="kpi-value">0,00%</div>
+              <div class="kpi-note">Média simples da execução física dos registros no recorte filtrado.</div>
+            </article>
+            <article class="kpi-card">
+              <div class="kpi-label">Empreendimentos</div>
+              <div id="kpiEmp" class="kpi-value">0</div>
+              <div class="kpi-note">Quantidade única de empreendimentos.</div>
+            </article>
+            <article class="kpi-card">
+              <div class="kpi-label">Municípios</div>
+              <div id="kpiMun" class="kpi-value">0</div>
+              <div class="kpi-note">Quantidade única de municípios.</div>
+            </article>
+          </div>
+          <div class="hier-summary" id="hierSummary"></div>
+        </section>
+
+        <!-- Hierarquia -->
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Estrutura hierárquica</h2>
+            <div id="hierBreadcrumb" class="breadcrumb">Todos</div>
+          </div>
+          <div class="chart-grid chart-grid-hier">
+            <article class="chart-card">
+              <div class="chart-title">Eixo</div>
+              <div class="chart-subtitle">Ordenado do menor para o maior valor total.</div>
+              <div class="plot-shell scroll-y"><div id="plotEixo" class="plot"></div></div>
+            </article>
+            <article class="chart-card">
+              <div class="chart-title">Subeixo</div>
+              <div class="chart-subtitle">Refina o eixo selecionado.</div>
+              <div class="plot-shell scroll-y"><div id="plotSubeixo" class="plot"></div></div>
+            </article>
+            <article class="chart-card">
+              <div class="chart-title">Modalidade</div>
+              <div class="chart-subtitle">Refina o subeixo selecionado.</div>
+              <div class="plot-shell scroll-y"><div id="plotModalidade" class="plot"></div></div>
+            </article>
+            <article class="chart-card">
+              <div class="chart-title">Empreendimento</div>
+              <div class="chart-subtitle">Detalhamento final da hierarquia. Clique em um item com link para ver o botão <b>Ver detalhes ↗</b>.</div>
+              <div class="plot-shell scroll-y"><div id="plotEmpreendimento" class="plot"></div></div>
+            </article>
+          </div>
+        </section>
+
+        <!-- Perfil do recorte -->
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Perfil do recorte</h2>
+          </div>
+          <div class="chart-grid chart-grid-pies">
+            <article class="chart-card">
+              <div class="chart-title">Inclusão no Novo PAC</div>
+              <div class="plot-shell"><div id="plotInclusao" class="plot pie-plot"></div></div>
+            </article>
+            <article class="chart-card">
+              <div class="chart-title">Tipo de Executor</div>
+              <div class="plot-shell"><div id="plotExecutor" class="plot pie-plot"></div></div>
+            </article>
+            <article class="chart-card">
+              <div class="chart-title">Estágio</div>
+              <div class="plot-shell"><div id="plotEstagio" class="plot pie-plot"></div></div>
+            </article>
+            <article class="chart-card">
+              <div class="chart-title">Fontes de financiamento</div>
+              <div class="plot-shell"><div id="plotFontes" class="plot pie-plot"></div></div>
+            </article>
+          </div>
+        </section>
+
+        <!-- Leituras complementares — 3 colunas: Classificação + Ministério + Ano -->
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Leituras complementares</h2>
+          </div>
+          <div class="chart-grid chart-grid-analytical">
+            <article class="chart-card">
+              <div class="chart-title">Classificação</div>
+              <div class="plot-shell scroll-y"><div id="plotClassificacao" class="plot"></div></div>
+            </article>
+            <article class="chart-card">
+              <div class="chart-title">Ministério</div>
+              <div class="chart-subtitle">Ministério responsável pelo empreendimento.</div>
+              <div class="plot-shell scroll-y"><div id="plotMinisterio" class="plot"></div></div>
+            </article>
+            <article class="chart-card">
+              <div class="chart-title">Ano de previsão de conclusão</div>
+              <div class="plot-shell"><div id="plotAno" class="plot"></div></div>
+            </article>
+          </div>
+        </section>
+
+        <!-- Relatório PDF -->
+        <section class="panel report-panel">
+          <div class="panel-head report-head">
+            <div>
+              <h2>Relatório do recorte</h2>
+              <div class="table-subhead">O PDF consolida as tabelas-resumo geradas com os filtros ativos na página.</div>
+            </div>
+            <button id="btnPdfSecondary" class="btn btn-secondary">Gerar PDF</button>
+          </div>
+          <div class="report-note">
+            O relatório contém tabelas para Inclusão no Novo PAC, Tipo de Executor, Estágio, Fontes de financiamento,
+            Ministério, Classificação, Eixo, Subeixo, Modalidade, Empreendimento e Ano de previsão de conclusão.
+          </div>
+        </section>
+
+        <footer class="footer-note panel">
+          <p><strong>Fonte:</strong> Novo PAC (2023–2030), Casa Civil – Governo Federal – Brasil.</p>
+          <p><strong>Recorte:</strong> Rio Grande do Sul. <strong>Atualização da base:</strong> março de 2026.</p>
+          <p>Os valores monetários são apresentados em reais. A execução física corresponde à média do recorte selecionado.</p>
+        </footer>
+      </section>
+    </main>
+  </div>
+
+  <div id="tables"></div>
+  <script src="assets/app.js"></script>
+</body>
+</html>
